@@ -30,30 +30,25 @@ MEMGRAPH_URI = os.environ.get("MEMGRAPH_URI", "bolt://localhost:7687")
 MEMGRAPH_USERNAME = os.environ.get("MEMGRAPH_USERNAME", "memgraph")
 MEMGRAPH_PASSWORD = os.environ.get("MEMGRAPH_PASSWORD", "mem0graph")
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
+UPSTASH_VECTOR_REST_URL = os.environ.get("UPSTASH_VECTOR_REST_URL")
+UPSTASH_VECTOR_REST_TOKEN = os.environ.get("UPSTASH_VECTOR_REST_TOKEN")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", ":memory:")
 
 DEFAULT_CONFIG = {
-    "version": "v1.1",
     "vector_store": {
-        "provider": "pgvector",
+        "provider": "upstash_vector",
         "config": {
-            "host": POSTGRES_HOST,
-            "port": int(POSTGRES_PORT),
-            "dbname": POSTGRES_DB,
-            "user": POSTGRES_USER,
-            "password": POSTGRES_PASSWORD,
-            "collection_name": POSTGRES_COLLECTION_NAME,
-        },
+            "collection_name": "memories",
+            "enable_embeddings": True,
+            "url": UPSTASH_VECTOR_REST_URL,
+            "token": UPSTASH_VECTOR_REST_TOKEN,
+        }
     },
-    "graph_store": {
-        "provider": "neo4j",
-        "config": {"url": NEO4J_URI, "username": NEO4J_USERNAME, "password": NEO4J_PASSWORD},
-    },
-    "llm": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": "gpt-4.1-nano-2025-04-14"}},
-    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": "text-embedding-3-small"}},
+    "llm": {"provider": "groq", "config": {"api_key": GROQ_API_KEY, "temperature": 0.1, "model": "moonshotai/kimi-k2-instruct-0905", "max_tokens": 2000}},
     "history_db_path": HISTORY_DB_PATH,
 }
+
 
 
 MEMORY_INSTANCE = Memory.from_config(DEFAULT_CONFIG)
