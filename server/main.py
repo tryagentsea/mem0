@@ -8,8 +8,9 @@ if not os.environ.get("MEM0_DIR"):
     os.environ["MEM0_DIR"] = "/tmp/.mem0"
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Security, Depends
 from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 
 from mem0 import Memory
@@ -39,6 +40,7 @@ UPSTASH_VECTOR_REST_URL = os.environ.get("UPSTASH_VECTOR_REST_URL")
 UPSTASH_VECTOR_REST_TOKEN = os.environ.get("UPSTASH_VECTOR_REST_TOKEN")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", ":memory:")
+API_AUTH_TOKEN = os.environ.get("API_AUTH_TOKEN")  # Token for API authentication
 
 DEFAULT_CONFIG = {
     "vector_store": {
@@ -62,6 +64,23 @@ config = MemoryConfig(**DEFAULT_CONFIG)
 MEMORY_INSTANCE = Memory(config)
 # Override embedder with MockEmbeddings since Upstash handles embeddings internally
 MEMORY_INSTANCE.embedding_model = MockEmbeddings()
+
+# Security scheme
+security = HTTPBearer()
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
+    """Verify the bearer token from the request."""
+    if not API_AUTH_TOKEN:
+        # If no token is set, skip authentication
+        return True
+    
+    if credentials.credentials != API_AUTH_TOKEN:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authentication token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return True
 
 app = FastAPI(
     title="Mem0 REST APIs",
@@ -92,7 +111,7 @@ class SearchRequest(BaseModel):
 
 
 @app.post("/configure", summary="Configure Mem0")
-def set_config(config: Dict[str, Any]):
+def set_config(config: Dict[str, Any], authenticated: bool = Depends(verify_token)):
     """Set memory configuration."""
     global MEMORY_INSTANCE
     MEMORY_INSTANCE = Memory.from_config(config)
@@ -100,7 +119,7 @@ def set_config(config: Dict[str, Any]):
 
 
 @app.post("/memories", summary="Create memories")
-def add_memory(memory_create: MemoryCreate):
+def add_memory(memory_create: MemoryCreate, authenticated: bool = Depends(verify_token)):
     """Store new memories."""
     if not any([memory_create.user_id, memory_create.agent_id, memory_create.run_id]):
         raise HTTPException(status_code=400, detail="At least one identifier (user_id, agent_id, run_id) is required.")
@@ -119,6 +138,7 @@ def get_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
+    authenticated: bool = Depends(verify_token),
 ):
     """Retrieve stored memories."""
     if not any([user_id, run_id, agent_id]):
@@ -134,7 +154,7 @@ def get_all_memories(
 
 
 @app.get("/memories/{memory_id}", summary="Get a memory")
-def get_memory(memory_id: str):
+def get_memory(memory_id: str, authenticated: bool = Depends(verify_token)):
     """Retrieve a specific memory by ID."""
     try:
         return MEMORY_INSTANCE.get(memory_id)
@@ -144,7 +164,7 @@ def get_memory(memory_id: str):
 
 
 @app.post("/search", summary="Search memories")
-def search_memories(search_req: SearchRequest):
+def search_memories(search_req: SearchRequest, authenticated: bool = Depends(verify_token)):
     """Search for memories based on a query."""
     try:
         params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
@@ -155,7 +175,7 @@ def search_memories(search_req: SearchRequest):
 
 
 @app.put("/memories/{memory_id}", summary="Update a memory")
-def update_memory(memory_id: str, updated_memory: Dict[str, Any]):
+def update_memory(memory_id: str, updated_memory: Dict[str, Any], authenticated: bool = Depends(verify_token)):
     """Update an existing memory with new content.
     
     Args:
@@ -173,7 +193,7 @@ def update_memory(memory_id: str, updated_memory: Dict[str, Any]):
 
 
 @app.get("/memories/{memory_id}/history", summary="Get memory history")
-def memory_history(memory_id: str):
+def memory_history(memory_id: str, authenticated: bool = Depends(verify_token)):
     """Retrieve memory history."""
     try:
         return MEMORY_INSTANCE.history(memory_id=memory_id)
@@ -183,7 +203,7 @@ def memory_history(memory_id: str):
 
 
 @app.delete("/memories/{memory_id}", summary="Delete a memory")
-def delete_memory(memory_id: str):
+def delete_memory(memory_id: str, authenticated: bool = Depends(verify_token)):
     """Delete a specific memory by ID."""
     try:
         MEMORY_INSTANCE.delete(memory_id=memory_id)
@@ -198,6 +218,7 @@ def delete_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
+    authenticated: bool = Depends(verify_token),
 ):
     """Delete all memories for a given identifier."""
     if not any([user_id, run_id, agent_id]):
@@ -214,7 +235,7 @@ def delete_all_memories(
 
 
 @app.post("/reset", summary="Reset all memories")
-def reset_memory():
+def reset_memory(authenticated: bool = Depends(verify_token)):
     """Completely reset stored memories."""
     try:
         MEMORY_INSTANCE.reset()
