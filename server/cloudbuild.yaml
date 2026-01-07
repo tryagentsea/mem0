@@ -1,0 +1,70 @@
+steps:
+  # 1. Download env file from Secret Manager
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        echo "Downloading env file from Secret Manager..."
+        gcloud secrets versions access latest --secret=mem0-env > server/.env
+
+  # 2. Build the container image
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - gcr.io/$PROJECT_ID/mem0-server:$COMMIT_SHA
+      - -t
+      - gcr.io/$PROJECT_ID/mem0-server:latest
+      - -f
+      - server/Dockerfile
+      - .
+
+  # 3. Push the container image to Container Registry
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - gcr.io/$PROJECT_ID/mem0-server:$COMMIT_SHA
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - gcr.io/$PROJECT_ID/mem0-server:latest
+
+  # 4. Deploy to Cloud Run
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - mem0-server
+      - --image
+      - gcr.io/$PROJECT_ID/mem0-server:$COMMIT_SHA
+      - --region
+      - us-west1
+      - --platform
+      - managed
+      - --allow-unauthenticated
+      - --set-secrets
+      - env=mem0-env:latest
+      - --memory
+      - 1Gi
+      - --cpu
+      - "1"
+      - --min-instances
+      - "0"
+      - --max-instances
+      - "10"
+      - --timeout
+      - "300"
+
+images:
+  - gcr.io/$PROJECT_ID/mem0-server:$COMMIT_SHA
+  - gcr.io/$PROJECT_ID/mem0-server:latest
+
+options:
+  machineType: N1_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1200s
+
