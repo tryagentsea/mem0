@@ -50,13 +50,18 @@ DEFAULT_CONFIG = {
             "token": UPSTASH_VECTOR_REST_TOKEN,
         }
     },
-    "llm": {"provider": "groq", "config": {"api_key": GROQ_API_KEY, "temperature": 0.1, "model": "moonshotai/kimi-k2-instruct-0905", "max_tokens": 2000}},
+    "llm": {"provider": "groq", "config": {"api_key": GROQ_API_KEY, "temperature": 0.1, "model": "moonshotai/kimi-k2-instruct-0905"}},
     "history_db_path": HISTORY_DB_PATH,
 }
 
+# Initialize Memory and manually override the embedder to use MockEmbeddings for Upstash
+from mem0.configs.base import MemoryConfig
+from mem0.embeddings.mock import MockEmbeddings
 
-
-MEMORY_INSTANCE = Memory.from_config(DEFAULT_CONFIG)
+config = MemoryConfig(**DEFAULT_CONFIG)
+MEMORY_INSTANCE = Memory(config)
+# Override embedder with MockEmbeddings since Upstash handles embeddings internally
+MEMORY_INSTANCE.embedding_model = MockEmbeddings()
 
 app = FastAPI(
     title="Mem0 REST APIs",
