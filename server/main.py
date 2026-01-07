@@ -105,6 +105,7 @@ class SearchRequest(BaseModel):
     user_id: Optional[str] = None
     run_id: Optional[str] = None
     agent_id: Optional[str] = None
+    limit: Optional[int] = 100
     filters: Optional[Dict[str, Any]] = None
 
 
@@ -166,6 +167,7 @@ def search_memories(search_req: SearchRequest, authenticated: bool = Depends(ver
     """Search for memories based on a query."""
     try:
         params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
+        print("search_req", search_req)
         return MEMORY_INSTANCE.search(query=search_req.query, **params)
     except Exception as e:
         logging.exception("Error in search_memories:")
