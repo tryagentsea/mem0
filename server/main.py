@@ -2,6 +2,11 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 
+# Set MEM0_DIR to /tmp for serverless environments (Vercel, AWS Lambda, etc.)
+# This must be set BEFORE importing mem0
+if not os.environ.get("MEM0_DIR"):
+    os.environ["MEM0_DIR"] = "/tmp/.mem0"
+
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
