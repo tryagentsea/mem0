@@ -56,7 +56,7 @@ steps:
       - --max-instances
       - "10"
       - --concurrency
-      - "20"
+      - "50"
       - --timeout
       - "300"
       - --port
