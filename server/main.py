@@ -20,27 +20,16 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 # Load environment variables
 load_dotenv()
 
-
-POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
-POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
-POSTGRES_DB = os.environ.get("POSTGRES_DB", "postgres")
-POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
-POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
-
-NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://neo4j:7687")
-NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "mem0graph")
-
-MEMGRAPH_URI = os.environ.get("MEMGRAPH_URI", "bolt://localhost:7687")
-MEMGRAPH_USERNAME = os.environ.get("MEMGRAPH_USERNAME", "memgraph")
-MEMGRAPH_PASSWORD = os.environ.get("MEMGRAPH_PASSWORD", "mem0graph")
-
 UPSTASH_VECTOR_REST_URL = os.environ.get("UPSTASH_VECTOR_REST_URL")
 UPSTASH_VECTOR_REST_TOKEN = os.environ.get("UPSTASH_VECTOR_REST_TOKEN")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+AWS_REGION = os.environ.get("AWS_REGION", "us-west-2")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", ":memory:")
 API_AUTH_TOKEN = os.environ.get("API_AUTH_TOKEN")  # Token for API authentication
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
 
 DEFAULT_CONFIG = {
     "vector_store": {
@@ -52,7 +41,14 @@ DEFAULT_CONFIG = {
             "token": UPSTASH_VECTOR_REST_TOKEN,
         }
     },
-    "llm": {"provider": "groq", "config": {"api_key": GROQ_API_KEY, "temperature": 0.1, "model": "moonshotai/kimi-k2-instruct-0905"}},
+    "llm": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",  # Or use "us.amazon.nova-lite-v1:0" for cheaper option
+            "temperature": 0.1,
+            "max_tokens": 2000,
+        }
+    },
     "history_db_path": HISTORY_DB_PATH,
 }
 
