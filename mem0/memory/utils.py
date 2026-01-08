@@ -19,7 +19,7 @@ def get_fact_retrieval_messages(message, is_agent_memory=False):
         tuple: (system_prompt, user_prompt)
     """
     if is_agent_memory:
-        return AGENT_MEMORY_EXTRACTION_PROMPT, f"Input:\n{message}"
+        return USER_MEMORY_EXTRACTION_PROMPT, f"Input:\n{message}"
     else:
         return USER_MEMORY_EXTRACTION_PROMPT, f"Input:\n{message}"
 

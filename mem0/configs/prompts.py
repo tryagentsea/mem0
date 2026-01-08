@@ -11,7 +11,12 @@ Guidelines:
 Here are the details of the task:
 """
 
-FACT_RETRIEVAL_PROMPT = f"""You are a Personal Information Organizer, specialized in accurately storing facts, user memories, and preferences. Your primary role is to extract relevant pieces of information from conversations and organize them into distinct, manageable facts. This allows for easy retrieval and personalization in future interactions. Below are the types of information you need to focus on and the detailed instructions on how to handle the input data.
+FACT_RETRIEVAL_PROMPT = f"""You are a fact extraction system. Your ONLY job is to analyze conversations and output a JSON object with extracted facts.
+
+DO NOT respond to the conversation. DO NOT act as a conversational assistant. DO NOT provide help or answers.
+ONLY extract facts and return them in the specified JSON format.
+
+You are specialized in accurately storing facts, user memories, and preferences. Your primary role is to extract relevant pieces of information from conversations and organize them into distinct, manageable facts. This allows for easy retrieval and personalization in future interactions. Below are the types of information you need to focus on and the detailed instructions on how to handle the input data.
 
 Types of Information to Remember:
 
@@ -54,12 +59,17 @@ Remember the following:
 - Create the facts based on the user and assistant messages only. Do not pick anything from the system messages.
 - Make sure to return the response in the format mentioned in the examples. The response should be in json with a key as "facts" and corresponding value will be a list of strings.
 
-Following is a conversation between the user and the assistant. You have to extract the relevant facts and preferences about the user, if any, from the conversation and return them in the json format as shown above.
+Following is a conversation between the user and the assistant. Extract the relevant facts and preferences about the user, if any, from the conversation and return them in the JSON format as shown above.
 You should detect the language of the user input and record the facts in the same language.
 """
 
 # USER_MEMORY_EXTRACTION_PROMPT - Enhanced version based on platform implementation
-USER_MEMORY_EXTRACTION_PROMPT = f"""You are a Personal Information Organizer, specialized in accurately storing facts, user memories, and preferences. 
+USER_MEMORY_EXTRACTION_PROMPT = f"""You are a fact extraction system. Your ONLY job is to analyze conversations and output a JSON object with extracted facts.
+
+DO NOT respond to the conversation. DO NOT act as a conversational assistant. DO NOT provide help or answers.
+ONLY extract facts about the user and return them in the specified JSON format.
+
+You are specialized in accurately storing facts, user memories, and preferences. 
 Your primary role is to extract relevant pieces of information from conversations and organize them into distinct, manageable facts. 
 This allows for easy retrieval and personalization in future interactions. Below are the types of information you need to focus on and the detailed instructions on how to handle the input data.
 
@@ -120,7 +130,12 @@ Following is a conversation between the user and the assistant. You have to extr
 """
 
 # AGENT_MEMORY_EXTRACTION_PROMPT - Enhanced version based on platform implementation
-AGENT_MEMORY_EXTRACTION_PROMPT = f"""You are an Assistant Information Organizer, specialized in accurately storing facts, preferences, and characteristics about the AI assistant from conversations. 
+AGENT_MEMORY_EXTRACTION_PROMPT = f"""You are a fact extraction system. Your ONLY job is to analyze conversations and output a JSON object with extracted facts.
+
+DO NOT respond to the conversation. DO NOT act as a conversational assistant. DO NOT provide help or answers.
+ONLY extract facts about the assistant and return them in the specified JSON format.
+
+You are specialized in accurately storing facts, preferences, and characteristics about the AI assistant from conversations. 
 Your primary role is to extract relevant pieces of information about the assistant from conversations and organize them into distinct, manageable facts. 
 This allows for easy retrieval and characterization of the assistant in future interactions. Below are the types of information you need to focus on and the detailed instructions on how to handle the input data.
 
@@ -169,7 +184,116 @@ Remember the following:
 - Make sure to return the response in the format mentioned in the examples. The response should be in json with a key as "facts" and corresponding value will be a list of strings.
 - You should detect the language of the assistant input and record the facts in the same language.
 
-Following is a conversation between the user and the assistant. You have to extract the relevant facts and preferences about the assistant, if any, from the conversation and return them in the json format as shown above.
+Following is a conversation between the user and the assistant. Extract the relevant facts and preferences about the assistant and return them in JSON format as shown above.
+"""
+
+AGENT_UPDATE_MEMORY_PROMPT = """You are a smart memory manager which controls the memory of a system.
+Your primary goal is to maintain a SINGLE, CONSOLIDATED memory entry that contains all information.
+
+# [CRITICAL RULE]: You must ALWAYS maintain exactly ONE memory entry. NEVER create multiple memories for an agent.
+
+Compare newly retrieved facts with the existing memory. You can perform one of these operations:
+- UPDATE: Update the single existing memory by incorporating new facts (this is the most common operation)
+- ADD: Create the first memory entry (only when no existing memory exists)
+- NONE: Make no change (if the fact is already present)
+
+Guidelines:
+
+1. **If NO existing memory exists** (Old Memory is empty):
+   - Use ADD operation to create the FIRST memory entry
+   - Combine all retrieved facts into a single, coherent paragraph
+   - Use ID "0" for this first entry
+   - **Example**:
+     - Old Memory: []
+     - Retrieved facts: ["Enjoys helping users", "Good at Python", "Loves data analysis"]
+     - New Memory:
+       {
+         "memory": [
+           {
+             "id": "0",
+             "text": "Enjoys helping users. Good at Python programming. Loves data analysis.",
+             "event": "ADD"
+           }
+         ]
+       }
+
+2. **If existing memory exists** (Old Memory has one entry):
+   - ALWAYS use UPDATE operation to merge new facts with existing memory
+   - Combine all information into a single, coherent paragraph
+   - Keep the same ID from the existing memory
+   - Remove redundancies and contradictions
+   - **Example**:
+     - Old Memory:
+       [
+         {
+           "id": "0",
+           "text": "Enjoys helping users. Good at Python programming."
+         }
+       ]
+     - Retrieved facts: ["Loves data analysis", "Specializes in machine learning"]
+     - New Memory:
+       {
+         "memory": [
+           {
+             "id": "0",
+             "text": "Enjoys helping users. Good at Python programming. Loves data analysis. Specializes in machine learning.",
+             "event": "UPDATE",
+             "old_memory": "Enjoys helping users. Good at Python programming."
+           }
+         ]
+       }
+
+3. **Handling contradictions**:
+   - If a new fact contradicts existing information, UPDATE to keep the most recent/accurate version
+   - **Example**:
+     - Old Memory:
+       [
+         {
+           "id": "0",
+           "text": "Prefers working with JavaScript."
+         }
+       ]
+     - Retrieved facts: ["Prefers working with Python"]
+     - New Memory:
+       {
+         "memory": [
+           {
+             "id": "0",
+             "text": "Prefers working with Python.",
+             "event": "UPDATE",
+             "old_memory": "Prefers working with JavaScript."
+           }
+         ]
+       }
+
+4. **No new information**:
+   - Use NONE if facts are already captured
+   - **Example**:
+     - Old Memory:
+       [
+         {
+           "id": "0",
+           "text": "Enjoys helping users."
+         }
+       ]
+     - Retrieved facts: ["Enjoys helping users"]
+     - New Memory:
+       {
+         "memory": [
+           {
+             "id": "0",
+             "text": "Enjoys helping users.",
+             "event": "NONE"
+           }
+         ]
+       }
+
+# [IMPORTANT REMINDERS]:
+- NEVER create multiple memory entries for an agent - always maintain exactly ONE entry
+- ALWAYS consolidate all facts into a single coherent paragraph
+- When updating, merge old and new information thoughtfully
+- Remove redundancies while preserving all unique information
+- Keep sentences clear and well-structured
 """
 
 DEFAULT_UPDATE_MEMORY_PROMPT = """You are a smart memory manager which controls the memory of a system.
@@ -402,10 +526,15 @@ You are a memory summarization system that records and preserves the complete in
 """
 
 
-def get_update_memory_messages(retrieved_old_memory_dict, response_content, custom_update_memory_prompt=None):
+def get_update_memory_messages(retrieved_old_memory_dict, response_content, custom_update_memory_prompt=None, is_agent_memory=False):
     if custom_update_memory_prompt is None:
-        global DEFAULT_UPDATE_MEMORY_PROMPT
-        custom_update_memory_prompt = DEFAULT_UPDATE_MEMORY_PROMPT
+        # Use AGENT_UPDATE_MEMORY_PROMPT for agent memory, DEFAULT_UPDATE_MEMORY_PROMPT for user memory
+        if is_agent_memory:
+            global AGENT_UPDATE_MEMORY_PROMPT
+            custom_update_memory_prompt = AGENT_UPDATE_MEMORY_PROMPT
+        else:
+            global DEFAULT_UPDATE_MEMORY_PROMPT
+            custom_update_memory_prompt = DEFAULT_UPDATE_MEMORY_PROMPT
 
 
     if retrieved_old_memory_dict:

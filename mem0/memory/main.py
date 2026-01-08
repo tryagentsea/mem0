@@ -259,8 +259,8 @@ class Memory(MemoryBase):
 
     def _should_use_agent_memory_extraction(self, messages, metadata):
         """Determine whether to use agent memory extraction based on the logic:
-        - If agent_id is present and messages contain assistant role -> True
-        - Otherwise -> False
+        - If agent_id is present -> True (single consolidated memory)
+        - Otherwise -> False (multiple individual memories)
         
         Args:
             messages: List of message dictionaries
@@ -269,14 +269,8 @@ class Memory(MemoryBase):
         Returns:
             bool: True if should use agent memory extraction, False for user memory extraction
         """
-        # Check if agent_id is present in metadata
-        has_agent_id = metadata.get("agent_id") is not None
-        
-        # Check if there are assistant role messages
-        has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
-        
-        # Use agent memory extraction if agent_id is present and there are assistant messages
-        return has_agent_id and has_assistant_messages
+        # Use agent memory extraction if agent_id is present
+        return metadata.get("agent_id") is not None
 
     def add(
         self,
@@ -384,6 +378,8 @@ class Memory(MemoryBase):
         return {"results": vector_store_result}
 
     def _add_to_vector_store(self, messages, metadata, filters, infer):
+        logger.info(f"[DEBUG _add_to_vector_store] infer={infer}, agent_id={metadata.get('agent_id')}, filters={filters}")
+        print(f"========== DEBUG: _add_to_vector_store called with infer={infer}, agent_id={metadata.get('agent_id')} ==========", flush=True)
         if not infer:
             returned_memories = []
             for message_dict in messages:
@@ -429,8 +425,11 @@ class Memory(MemoryBase):
             # Determine if this should use agent memory extraction based on agent_id presence
             # and role types in messages
             is_agent_memory = self._should_use_agent_memory_extraction(messages, metadata)
+            print(f"[EXTRACTION DEBUG] is_agent_memory: {is_agent_memory}, agent_id: {metadata.get('agent_id')}")
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages, is_agent_memory)
 
+        print(f"[EXTRACTION DEBUG] Sending to LLM - System prompt (first 100 chars): {system_prompt[:100]}...")
+        print(f"[EXTRACTION DEBUG] Sending to LLM - User prompt: {user_prompt}")
         response = self.llm.generate_response(
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -438,9 +437,11 @@ class Memory(MemoryBase):
             ],
             response_format={"type": "json_object"},
         )
+        print(f"[DEBUG] Response: {response}")
 
         try:
             response = remove_code_blocks(response)
+            print(f"[DEBUG] Response: {response}")
             if not response.strip():
                 new_retrieved_facts = []
             else:
@@ -455,6 +456,7 @@ class Memory(MemoryBase):
             logger.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
 
+        print(f"[FACTS DEBUG] Retrieved {len(new_retrieved_facts)} facts: {new_retrieved_facts}")
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
 
@@ -494,9 +496,13 @@ class Memory(MemoryBase):
             retrieved_old_memory[idx]["id"] = str(idx)
 
         if new_retrieved_facts:
+            is_agent_memory = self._should_use_agent_memory_extraction(messages, metadata)
+            print(f"[DEBUG] is_agent_memory: {is_agent_memory}, agent_id: {metadata.get('agent_id')}")
             function_calling_prompt = get_update_memory_messages(
-                retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
+                retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt, is_agent_memory
             )
+            print(f"[DEBUG] Using {'AGENT' if is_agent_memory else 'USER'} prompt")
+            print(f"[DEBUG] Prompt (first 200 chars): {function_calling_prompt[:200]}")
 
             try:
                 response: str = self.llm.generate_response(
@@ -1169,7 +1175,13 @@ class Memory(MemoryBase):
         if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
 
-        if data in existing_embeddings:
+        # Check if vector store handles embeddings (e.g., Upstash with enable_embeddings=True)
+        vector_store_handles_embeddings = hasattr(self.vector_store, 'enable_embeddings') and self.vector_store.enable_embeddings
+        
+        if vector_store_handles_embeddings:
+            # Let the vector store handle embedding (pass None for vector, data in payload)
+            embeddings = None
+        elif data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
             embeddings = self.embedding_model.embed(data, "update")
@@ -1309,8 +1321,8 @@ class AsyncMemory(MemoryBase):
 
     def _should_use_agent_memory_extraction(self, messages, metadata):
         """Determine whether to use agent memory extraction based on the logic:
-        - If agent_id is present and messages contain assistant role -> True
-        - Otherwise -> False
+        - If agent_id is present -> True (single consolidated memory)
+        - Otherwise -> False (multiple individual memories)
         
         Args:
             messages: List of message dictionaries
@@ -1319,14 +1331,8 @@ class AsyncMemory(MemoryBase):
         Returns:
             bool: True if should use agent memory extraction, False for user memory extraction
         """
-        # Check if agent_id is present in metadata
-        has_agent_id = metadata.get("agent_id") is not None
-        
-        # Check if there are assistant role messages
-        has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
-        
-        # Use agent memory extraction if agent_id is present and there are assistant messages
-        return has_agent_id and has_assistant_messages
+        # Use agent memory extraction if agent_id is present
+        return metadata.get("agent_id") is not None
 
     async def add(
         self,
@@ -1524,9 +1530,13 @@ class AsyncMemory(MemoryBase):
             retrieved_old_memory[idx]["id"] = str(idx)
 
         if new_retrieved_facts:
+            is_agent_memory = self._should_use_agent_memory_extraction(messages, metadata)
+            print(f"[DEBUG ASYNC] is_agent_memory: {is_agent_memory}, agent_id: {metadata.get('agent_id')}")
             function_calling_prompt = get_update_memory_messages(
-                retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
+                retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt, is_agent_memory
             )
+            print(f"[DEBUG ASYNC] Using {'AGENT' if is_agent_memory else 'USER'} prompt")
+            print(f"[DEBUG ASYNC] Prompt (first 200 chars): {function_calling_prompt[:200]}")
             try:
                 response = await asyncio.to_thread(
                     self.llm.generate_response,

@@ -534,7 +534,6 @@ class AWSBedrockLLM(LLMBase):
                 "inferenceConfig": {
                     "maxTokens": self.model_config.get("max_tokens", 2000),
                     "temperature": self.model_config.get("temperature", 0.1),
-                    "topP": self.model_config.get("top_p", 0.9),
                 }
             }
 

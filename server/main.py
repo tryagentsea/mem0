@@ -1,6 +1,10 @@
 import logging
 import os
+import sys
 from typing import Any, Dict, List, Optional
+
+# Add parent directory to path to use local mem0 code
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # Set MEM0_DIR to /tmp for serverless environments (Vercel, AWS Lambda, etc.)
 # This must be set BEFORE importing mem0
@@ -44,9 +48,7 @@ DEFAULT_CONFIG = {
     "llm": {
         "provider": "aws_bedrock",
         "config": {
-            "model": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",  # Or use "us.amazon.nova-lite-v1:0" for cheaper option
-            "temperature": 0.1,
-            "max_tokens": 2000,
+            "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
         }
     },
     "history_db_path": HISTORY_DB_PATH,

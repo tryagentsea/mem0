@@ -10,9 +10,9 @@ services:
     env_file:
       - .env
     volumes:
-      - ./history:/app/history      # History db location. By default, it creates a history.db file on the server folder
-      - .:/app                      # Server code. This allows to reload the app when the server code is updated
-      - ../mem0:/app/packages/mem0  # Mem0 library. This allows to reload the app when the library code is updated
+      - ./history:/app/server/history      # History db location. By default, it creates a history.db file on the server folder
+      - .:/app/server                      # Server code. This allows to reload the app when the server code is updated
+      - ../mem0:/app/mem0                  # Mem0 library. This allows to reload the app when the library code is updated
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Enable auto-reload
     environment:
       - PYTHONDONTWRITEBYTECODE=1  # Prevents Python from writing .pyc files
