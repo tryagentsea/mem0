@@ -222,15 +222,30 @@ class UpstashVector(VectorStoreBase):
         if not ns_info or ns_info.vector_count == 0:
             return [[]]
 
-        random_vector = [1.0] * self.client.info().dimension
 
-        results, query = self.client.resumable_query(
-            vector=random_vector,
-            filter=filters_str or "",
-            include_metadata=True,
-            namespace=self.collection_name,
-            top_k=100,
-        )
+        if self.enable_embeddings:
+            # Use a generic query string to fetch all results with filters
+            # Use a generic query string that matches all records (should return all vectors).
+            # An empty string or a generic word will typically match all when Upstash embeddings are enabled.
+            dummy_query = ""  # Empty string to match all if possible
+            results, query = self.client.resumable_query(
+                data=dummy_query,
+                filter=filters_str or "",
+                include_metadata=True,
+                namespace=self.collection_name,
+                top_k=100,
+            )
+        else:
+            random_vector = [1.0] * self.client.info().dimension
+            results, query = self.client.resumable_query(
+                vector=random_vector,
+                filter=filters_str or "",
+                include_metadata=True,
+                namespace=self.collection_name,
+                top_k=100,
+            )
+        
+        # Fetch additional results if needed
         with query:
             while True:
                 if len(results) >= limit:
