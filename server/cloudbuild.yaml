@@ -48,15 +48,15 @@ steps:
       - --set-secrets
       - env=mem0-env:latest
       - --memory
-      - 4Gi
+      - 8Gi
       - --cpu
-      - "2"
+      - "4"
       - --min-instances
       - "1"
       - --max-instances
       - "10"
       - --concurrency
-      - "50"
+      - "40"
       - --timeout
       - "300"
       - --port
